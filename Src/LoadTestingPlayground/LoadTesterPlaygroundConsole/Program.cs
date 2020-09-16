@@ -1,4 +1,5 @@
-﻿using NBomber.Contracts;
+﻿using NBomber;
+using NBomber.Contracts;
 using NBomber.CSharp;
 using NBomber.Plugins.Http.CSharp;
 using NBomber.Plugins.Network.Ping;
@@ -12,15 +13,18 @@ namespace LoadTesterPlaygroundConsole
 {
     class Program
     {
+        const string companyHandle = "orange";
+        const string username = "andrew";
+        const string password = "1234";
         const string webDomain = "stage.ebriza.ro";
         const string webProtocol = "https://";
         static readonly RequestInfo[] relativeUrlsToTest = new RequestInfo[] {
             //new RequestInfo{ },
             new RequestInfo{ RelativeUrl = "/ProductStock/Search?id=&types=0&pageItems=1000" },
         };
-        static int usersPerSecondToSimulate = 4;
+        static int usersPerSecondToSimulate = 1;
         //static int usersPerSecondToSimulate = 1;
-        static readonly TimeSpan defaultSimulationDuration = TimeSpan.FromSeconds(120);
+        static readonly TimeSpan defaultSimulationDuration = TimeSpan.FromSeconds(10);
         static readonly TimeSpan defaultWarmupDuration = TimeSpan.FromSeconds(5);
 
         static readonly HttpClient http;
@@ -35,32 +39,33 @@ namespace LoadTesterPlaygroundConsole
 
         static void Main(string[] args)
         {
-            NBomber.Contracts.IStep[] relativeUrlsHttpRequestSteps = new NBomber.Contracts.IStep[relativeUrlsToTest.Length];
+            ;
 
-            int relativeUrlIndex = -1;
-            foreach (RequestInfo requestInfo in relativeUrlsToTest)
-            {
-                relativeUrlIndex++;
-                relativeUrlsHttpRequestSteps[relativeUrlIndex] = HttpStep.Create(name: $"Fetch {requestInfo.RelativeUrl}", context =>
+            IFeed<RequestInfo> feed = Feed.CreateConstant("Requests", FeedData.FromSeq(relativeUrlsToTest));
+
+
+            IStep relativeUrlsHttpRequestStep = HttpStep.Create(
+                    name: $"Fetch random Ebriza data intensive URLs",
+                    feed: feed,
+                    ctx =>
                     {
                         string cookies = httpClientHandler.CookieContainer.GetCookieHeader(new Uri($"{webProtocol}{webDomain}"));
-                        NBomber.Http.HttpRequest result 
-                            = Http.CreateRequest(requestInfo.Method, $"{webProtocol}{webDomain}{requestInfo.RelativeUrl}")
+                        NBomber.Http.HttpRequest result
+                            = Http.CreateRequest(ctx.FeedItem.Method, $"{webProtocol}{webDomain}{ctx.FeedItem.RelativeUrl}")
                             .WithHeader("Cookie", cookies)
-                            .WithCheck(async res => res.IsSuccessStatusCode ? Response.Ok() : Response.Fail(res.StatusCode.ToString()))
+                            .WithCheck(async res => res.IsSuccessStatusCode && res.RequestMessage.RequestUri.ToString().Contains(ctx.FeedItem.RelativeUrl, StringComparison.InvariantCultureIgnoreCase) ? Response.Ok() : Response.Fail(res.StatusCode.ToString()))
                             ;
-                        if (requestInfo.Body != null)
+                        if (ctx.FeedItem.Body != null)
                         {
-                            result = result.WithBody(new StringContent(JsonConvert.SerializeObject(requestInfo.Body), Encoding.UTF8, requestInfo.ContentType));
+                            result = result.WithBody(new StringContent(JsonConvert.SerializeObject(ctx.FeedItem.Body), Encoding.UTF8, ctx.FeedItem.ContentType));
                         }
                         return result;
-                    }
+                    }, completionOption: HttpCompletionOption.ResponseContentRead
                 );
-            }
 
             NBomber.Contracts.Scenario userPerSecondScenario
                 = ScenarioBuilder
-                .CreateScenario(name: $"Load Testing Scenario for {webDomain} with {usersPerSecondToSimulate} users per second", relativeUrlsHttpRequestSteps)
+                .CreateScenario(name: $"Load Testing Scenario for {webDomain} with {usersPerSecondToSimulate} users per second", relativeUrlsHttpRequestStep)
                 .WithWarmUpDuration(defaultWarmupDuration)
                 .WithInit(async ctx =>
                 {
@@ -71,9 +76,9 @@ namespace LoadTesterPlaygroundConsole
                                 JsonConvert.SerializeObject(
                                     new
                                     {
-                                        CompanyHandle = "orange",
-                                        UserName = "andrew",
-                                        Password = "1234",
+                                        CompanyHandle = companyHandle,
+                                        UserName = username,
+                                        Password = password,
                                     }
                                 ),
                                 Encoding.UTF8,
