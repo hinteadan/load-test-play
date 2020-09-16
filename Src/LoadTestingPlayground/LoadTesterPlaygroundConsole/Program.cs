@@ -1,30 +1,50 @@
-﻿using NBomber.Contracts;
-using NBomber.CSharp;
+﻿using NBomber.CSharp;
+using NBomber.Plugins.Http.CSharp;
+using NBomber.Plugins.Network.Ping;
 using System;
-using System.Threading.Tasks;
 
 namespace LoadTesterPlaygroundConsole
 {
     class Program
     {
+        const string webDomain = "stage.ebriza.ro";
+        const string webProtocol = "https://";
+        static readonly string[] relativeUrlsToTest = new string[] {
+            "/"
+        };
+        static int usersPerSecondToSimulate = 50;
+        static readonly TimeSpan defaultSimulationDuration = TimeSpan.FromSeconds(10);
+        static readonly TimeSpan defaultWarmupDuration = TimeSpan.FromSeconds(5);
+
         static void Main(string[] args)
         {
-            // first, you need to create a step
-            var step = Step.Create("step", async context =>
+            NBomber.Contracts.IStep[] relativeUrlsHttpRequestSteps = new NBomber.Contracts.IStep[relativeUrlsToTest.Length];
+
+            int relativeUrlIndex = -1;
+            foreach (string relativeUrl in relativeUrlsToTest)
             {
-                // you can define and execute any logic here,
-                // for example: send http request, SQL query etc
-                // NBomber will measure how much time it takes to execute your logic
+                relativeUrlIndex++;
+                relativeUrlsHttpRequestSteps[relativeUrlIndex] = HttpStep.Create(name: $"Fetch {relativeUrl}", context =>
+                    Http.CreateRequest("GET", $"{webProtocol}{webDomain}{relativeUrl}")
+                );
+            }
 
-                await Task.Delay(TimeSpan.FromSeconds(1));
-                return Response.Ok();
-            });
+            NBomber.Contracts.Scenario userPerSecondScenario
+                = ScenarioBuilder
+                .CreateScenario(name: $"Load Testing Scenario for {webDomain} with {usersPerSecondToSimulate} users per second", relativeUrlsHttpRequestSteps)
+                .WithWarmUpDuration(defaultWarmupDuration)
+                .WithLoadSimulations(new NBomber.Contracts.LoadSimulation[]{
+                    Simulation.InjectPerSec(rate: usersPerSecondToSimulate, during: defaultSimulationDuration),//RATE scenarios per second, for a timespan of DURING seconds)
+                });
 
-            // second, we add our step to the scenario
-            var scenario = ScenarioBuilder.CreateScenario("hello_world", step);
+            PingPluginConfig pingPluginConfig = PingPluginConfig.CreateDefault(new string[] { webDomain });
+            PingPlugin pingPlugin = new PingPlugin(pingPluginConfig);
 
             NBomberRunner
-                .RegisterScenarios(scenario)
+                .RegisterScenarios(userPerSecondScenario)
+                .WithTestSuite("Ebriza Load Testing")
+                .WithTestName($"Load test {webDomain}")
+                .WithWorkerPlugins(pingPlugin)
                 .Run();
         }
     }
