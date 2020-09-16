@@ -22,9 +22,9 @@ namespace LoadTesterPlaygroundConsole
             //new RequestInfo{ },
             new RequestInfo{ RelativeUrl = "/ProductStock/Search?id=&types=0&pageItems=1000" },
         };
-        static int usersPerSecondToSimulate = 1;
+        static int usersPerSecondToSimulate = 4;
         //static int usersPerSecondToSimulate = 1;
-        static readonly TimeSpan defaultSimulationDuration = TimeSpan.FromSeconds(10);
+        static readonly TimeSpan defaultSimulationDuration = TimeSpan.FromSeconds(120);
         static readonly TimeSpan defaultWarmupDuration = TimeSpan.FromSeconds(5);
 
         static readonly HttpClient http;
@@ -39,14 +39,11 @@ namespace LoadTesterPlaygroundConsole
 
         static void Main(string[] args)
         {
-            ;
-
-            IFeed<RequestInfo> feed = Feed.CreateConstant("Requests", FeedData.FromSeq(relativeUrlsToTest));
-
+            IFeed<RequestInfo> urlsDataFeed = Feed.CreateConstant("Requests", FeedData.FromSeq(relativeUrlsToTest));
 
             IStep relativeUrlsHttpRequestStep = HttpStep.Create(
                     name: $"Fetch random Ebriza data intensive URLs",
-                    feed: feed,
+                    feed: urlsDataFeed,
                     ctx =>
                     {
                         string cookies = httpClientHandler.CookieContainer.GetCookieHeader(new Uri($"{webProtocol}{webDomain}"));
