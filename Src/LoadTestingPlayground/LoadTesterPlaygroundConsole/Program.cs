@@ -1,4 +1,5 @@
-﻿using NBomber.CSharp;
+﻿using NBomber.Contracts;
+using NBomber.CSharp;
 using NBomber.Plugins.Http.CSharp;
 using NBomber.Plugins.Network.Ping;
 using Newtonsoft.Json;
@@ -13,12 +14,13 @@ namespace LoadTesterPlaygroundConsole
     {
         const string webDomain = "stage.ebriza.ro";
         const string webProtocol = "https://";
-        static readonly string[] relativeUrlsToTest = new string[] {
-            "/"
+        static readonly RequestInfo[] relativeUrlsToTest = new RequestInfo[] {
+            //new RequestInfo{ },
+            new RequestInfo{ RelativeUrl = "/ProductStock/Search?id=&types=0&pageItems=1000" },
         };
-        //static int usersPerSecondToSimulate = 50;
-        static int usersPerSecondToSimulate = 1;
-        static readonly TimeSpan defaultSimulationDuration = TimeSpan.FromSeconds(10);
+        static int usersPerSecondToSimulate = 4;
+        //static int usersPerSecondToSimulate = 1;
+        static readonly TimeSpan defaultSimulationDuration = TimeSpan.FromSeconds(120);
         static readonly TimeSpan defaultWarmupDuration = TimeSpan.FromSeconds(5);
 
         static readonly HttpClient http;
@@ -36,11 +38,23 @@ namespace LoadTesterPlaygroundConsole
             NBomber.Contracts.IStep[] relativeUrlsHttpRequestSteps = new NBomber.Contracts.IStep[relativeUrlsToTest.Length];
 
             int relativeUrlIndex = -1;
-            foreach (string relativeUrl in relativeUrlsToTest)
+            foreach (RequestInfo requestInfo in relativeUrlsToTest)
             {
                 relativeUrlIndex++;
-                relativeUrlsHttpRequestSteps[relativeUrlIndex] = HttpStep.Create(name: $"Fetch {relativeUrl}", context =>
-                    Http.CreateRequest("GET", $"{webProtocol}{webDomain}{relativeUrl}")
+                relativeUrlsHttpRequestSteps[relativeUrlIndex] = HttpStep.Create(name: $"Fetch {requestInfo.RelativeUrl}", context =>
+                    {
+                        string cookies = httpClientHandler.CookieContainer.GetCookieHeader(new Uri($"{webProtocol}{webDomain}"));
+                        NBomber.Http.HttpRequest result 
+                            = Http.CreateRequest(requestInfo.Method, $"{webProtocol}{webDomain}{requestInfo.RelativeUrl}")
+                            .WithHeader("Cookie", cookies)
+                            .WithCheck(async res => res.IsSuccessStatusCode ? Response.Ok() : Response.Fail(res.StatusCode.ToString()))
+                            ;
+                        if (requestInfo.Body != null)
+                        {
+                            result = result.WithBody(new StringContent(JsonConvert.SerializeObject(requestInfo.Body), Encoding.UTF8, requestInfo.ContentType));
+                        }
+                        return result;
+                    }
                 );
             }
 
@@ -91,6 +105,14 @@ namespace LoadTesterPlaygroundConsole
                 .WithTestName($"Load test {webDomain}")
                 .WithWorkerPlugins(pingPlugin)
                 .Run();
+        }
+
+        class RequestInfo
+        {
+            public string RelativeUrl { get; set; } = "/";
+            public string Method { get; set; } = "GET";
+            public object Body { get; set; } = null;
+            public string ContentType { get; set; } = "application/json";
         }
     }
 }
