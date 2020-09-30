@@ -1,0 +1,23 @@
+{
+    "test_name": "Ebriza Landing Page",
+    "num_clients": 10,
+    "hatch_rate": 1,
+    "run_time": 60,
+    "threads_per_region": 1,
+    "domain_name": "live.ebriza.ro",
+    "protocol": "https",
+    "min_wait": 500,
+    "max_wait": 3000,
+    "test_region": [
+        "eu-west-1"
+    ],
+    "workflow": [
+        {
+            "path": "/",
+            "method": "GET",
+            "data": "",
+            "headers": {},
+            "extract": []
+        }
+    ]
+}
