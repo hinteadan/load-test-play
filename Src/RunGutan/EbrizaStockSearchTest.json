@@ -1,8 +1,8 @@
 {
-    "test_name": "Ebriza Stock Search",
-    "num_clients": 10,
-    "hatch_rate": 1,
-    "run_time": 10,
+    "test_name": "Ebriza Stock Search 50 Users, ramp 4/sec",
+    "num_clients": 50,
+    "hatch_rate": 4,
+    "run_time": 120,
     "threads_per_region": 1,
     "domain_name": "stage.ebriza.ro",
     "protocol": "https",
