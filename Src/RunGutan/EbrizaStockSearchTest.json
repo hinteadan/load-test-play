@@ -1,0 +1,38 @@
+{
+    "test_name": "Ebriza Stock Search",
+    "num_clients": 10,
+    "hatch_rate": 1,
+    "run_time": 10,
+    "threads_per_region": 1,
+    "domain_name": "stage.ebriza.ro",
+    "protocol": "https",
+    "min_wait": 500,
+    "max_wait": 3000,
+    "test_region": [
+        "eu-west-1"
+    ],
+    "workflow": [
+        {
+            "path": "/Login/Login",
+            "method": "POST",
+            "data": "{ \"CompanyHandle\": \"orange\", \"UserName\": \"andrew\", \"Password\": \"1234\" }",
+            "headers": { "Content-Type": "application/json" },
+            "extract": [
+                {
+                    "parameter_name": "cookie",
+                    "location": "headers",
+                    "key": "set-cookie"
+                }
+            ]
+        },
+        {
+            "path": "/ProductStock/Search?id=&types=0&pageItems=1000",
+            "method": "GET",
+            "data": "",
+            "headers": {
+                "Cookie": "${cookie}"
+            },
+            "extract": []
+        }
+    ]
+}
